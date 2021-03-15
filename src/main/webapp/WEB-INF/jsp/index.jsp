@@ -22,6 +22,14 @@
                     <option name="regionSelected" value="${region.getId()}">${region.getName()}</option>
                 </c:forEach>
             </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="group_select">Select group</label>
+            <select id="group_select" class="form-select" multiple aria-label="Select group">
+                <c:forEach items="${groups}" var="group">
+                    <option name="groupSelected" value="${group.getId()}">${group.getName()}</option>
+                </c:forEach>
+            </select>
             <button id="button">Send</button>
         </div>
 
@@ -33,9 +41,13 @@
 <script>
     $('#button').click(function setData() {
         let selectedValues = $('#region_select').val();
+        let selectedValuesGroup = $('#group_select').val();
         $.ajax({
             type: 'POST',
-            data: {selectedValues: selectedValues},
+            data: {
+                selectedValues: selectedValues,
+                selectedValuesGroup: selectedValuesGroup
+            },
             url: 'index',
             success: function (answer) {
                 $('#result').text(answer);
