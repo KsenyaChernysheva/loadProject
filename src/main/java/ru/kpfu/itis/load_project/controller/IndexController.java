@@ -27,8 +27,8 @@ public class IndexController {
 
     @PostMapping
     public ResponseEntity<Double> region(@RequestParam(value = "selectedValues[]") Integer[] ids,
-                                         @RequestParam(value = "selectedValuesGroup[]") Integer[] idsGroup) {
-        Long peopleNumber = indexService.getPeopleNumber(ids, idsGroup);
+                                         @RequestParam(value = "selectedValuesTargetAudience[]") Integer[] idsTargetAudience) {
+        Long peopleNumber = indexService.getPeopleNumber(ids, idsTargetAudience);
         return new ResponseEntity<>(indexService.getDistribution(peopleNumber), HttpStatus.OK);
     }
 
@@ -37,7 +37,7 @@ public class IndexController {
         List<Region> regions = indexService.getAllRegions();
         List<TargetAudience> targetAudiences = indexService.getAllAudiences();
 
-        model.addAttribute("groups", targetAudiences);
+        model.addAttribute("audiences", targetAudiences);
         model.addAttribute("answer", new ArrayList<Integer>());
         model.addAttribute("regions", regions);
         return "index";

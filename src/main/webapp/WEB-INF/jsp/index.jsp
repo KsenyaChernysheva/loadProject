@@ -24,10 +24,10 @@
             </select>
         </div>
         <div class="col-lg-4">
-            <label for="group_select">Select group</label>
-            <select id="group_select" class="form-select" multiple aria-label="Select group">
-                <c:forEach items="${groups}" var="group">
-                    <option name="groupSelected" value="${group.getId()}">${group.getName()}</option>
+            <label for="target_audience_select">Select target audience</label>
+            <select id="target_audience_select" class="form-select" multiple aria-label="Select target audience">
+                <c:forEach items="${audiences}" var="target_audience">
+                    <option name="targetAudienceSelected" value="${target_audience.getId()}">${target_audience.getName()}</option>
                 </c:forEach>
             </select>
             <button id="button">Send</button>
@@ -41,12 +41,12 @@
 <script>
     $('#button').click(function setData() {
         let selectedValues = $('#region_select').val();
-        let selectedValuesGroup = $('#group_select').val();
+        let selectedValuesTargetAudience = $('#target_audience_select').val();
         $.ajax({
             type: 'POST',
             data: {
                 selectedValues: selectedValues,
-                selectedValuesGroup: selectedValuesGroup
+                selectedValuesTargetAudience: selectedValuesTargetAudience
             },
             url: 'index',
             success: function (answer) {
