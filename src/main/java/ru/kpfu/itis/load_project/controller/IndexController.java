@@ -14,6 +14,7 @@ import ru.kpfu.itis.load_project.entity.Region;
 import ru.kpfu.itis.load_project.entity.TargetAudience;
 import ru.kpfu.itis.load_project.service.IndexService;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,9 +27,14 @@ public class IndexController {
     private IndexService indexService;
 
     @PostMapping
-    public ResponseEntity<Double> region(@RequestParam(value = "selectedValues[]") Integer[] ids,
-                                         @RequestParam(value = "selectedValuesTargetAudience[]") Integer[] idsTargetAudience) {
-        Long peopleNumber = indexService.getPeopleNumber(ids, idsTargetAudience);
+    public ResponseEntity<Long> region(@RequestParam(value = "selectedValues[]") List<Integer> ids,
+                                         @RequestParam(value = "selectedValuesTargetAudience[]") List<Integer> idsTargetAudience) {
+        Long peopleNumber = 0L;
+        try {
+            peopleNumber = indexService.getPeopleNumber(ids, idsTargetAudience);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         return new ResponseEntity<>(indexService.getDistribution(peopleNumber), HttpStatus.OK);
     }
 

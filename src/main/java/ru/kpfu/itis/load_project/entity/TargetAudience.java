@@ -16,4 +16,7 @@ public class TargetAudience {
 
     @Column
     private String name;
+
+    @Column
+    private String query;
 }
