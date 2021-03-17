@@ -34,7 +34,7 @@ public class IndexService {
     private static final String ROSSTAT_LINK_PREFIX = "https://rosstat.gov.ru";
 
     public List<Region> getAllRegions() {
-        return regionDao.findAll();
+        return regionDao.findAllByOrderByNameAsc();
     }
 
     public List<TargetAudience> getAllAudiences() {
@@ -49,7 +49,6 @@ public class IndexService {
         for (TargetAudience audience : audiences) {
             peopleNumber += getPeopleNumberInAudience(regions, audience.getQuery());
         }
-        System.out.println(peopleNumber);
         return peopleNumber;
     }
 
@@ -60,11 +59,20 @@ public class IndexService {
                 .getElementsByTag("a").first();
         URL statisticsURL = new URL(ROSSTAT_LINK_PREFIX + statisticsLink.attr("href"));
 
+        List<Region> regionsWithParent = regions.stream()
+                .filter(region -> region.getParentId() != null).collect(Collectors.toList());
+        for (Region regionWithParent : regionsWithParent) {
+            if (regions.stream().map(region -> region.getId())
+                    .anyMatch(regionId -> regionId.equals(regionWithParent.getParentId()))) {
+                regions.remove(regionWithParent);
+            }
+        }
+
         InputStream in = statisticsURL.openStream();
         Workbook workbook = new HSSFWorkbook(in);
         Sheet sheet = workbook.getSheetAt(0);
         Iterator<Row> iterator = sheet.iterator();
-        List<String> regionStrings = regions.stream().map(region -> region.getName()).collect(Collectors.toList());
+        List<String> regionStrings = regions.stream().map(region -> region.getDbName()).collect(Collectors.toList());
         Long peopleNumberInAudience = 0L;
         while (iterator.hasNext()) {
             String stringToRemove = null;
@@ -73,8 +81,8 @@ public class IndexService {
             if (cell == null) continue;
             for (String regionString : regionStrings) {
                 if (cell.getStringCellValue().contains(regionString)) {
-                    Cell dataCell = row.getCell(row.getLastCellNum()-1);
-                    peopleNumberInAudience += new Double(dataCell.getNumericCellValue()*1000).longValue();
+                    Cell dataCell = row.getCell(row.getLastCellNum() - 1);
+                    peopleNumberInAudience += new Double(dataCell.getNumericCellValue() * 1000).longValue();
                     stringToRemove = regionString;
                     break;
                 }
@@ -83,7 +91,7 @@ public class IndexService {
             if (regionStrings.isEmpty()) break;
         }
 
-        return  peopleNumberInAudience;
+        return peopleNumberInAudience;
     }
 
     public Long getDistribution(Long peopleNumber) {

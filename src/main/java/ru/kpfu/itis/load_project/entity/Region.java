@@ -18,4 +18,10 @@ public class Region {
 
     @Column
     private String name;
+
+    @Column(name = "db_name")
+    private String dbName;
+
+    @Column(name = "parent_id")
+    private Integer parentId;
 }
