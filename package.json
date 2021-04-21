@@ -1,0 +1,24 @@
+{
+  "name": "load_project1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "google-trends-api": "^4.9.2",
+    "requirejs": "^2.3.6"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KsenyaChernysheva/loadProject.git"
+  },
+  "author": "Ksenia Chernysheva",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KsenyaChernysheva/loadProject/issues"
+  },
+  "homepage": "https://github.com/KsenyaChernysheva/loadProject#readme"
+}

@@ -27,7 +27,8 @@
             <label for="target_audience_select">Select target audience</label>
             <select id="target_audience_select" class="form-select" multiple aria-label="Select target audience">
                 <c:forEach items="${audiences}" var="target_audience">
-                    <option name="targetAudienceSelected" value="${target_audience.getId()}">${target_audience.getName()}</option>
+                    <option name="targetAudienceSelected"
+                            value="${target_audience.getId()}">${target_audience.getName()}</option>
                 </c:forEach>
             </select>
             <button id="button">Send</button>
@@ -35,6 +36,11 @@
 
         <div class="col-lg-4 ml-3">
             <p id="result"></p>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col md-auto">
+            <p>${resultString}</p>
         </div>
     </div>
 </div>

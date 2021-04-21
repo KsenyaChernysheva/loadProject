@@ -8,6 +8,15 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.kpfu.itis.load_project.dao.RegionDao;
@@ -15,11 +24,10 @@ import ru.kpfu.itis.load_project.dao.TargetAudienceDao;
 import ru.kpfu.itis.load_project.entity.Region;
 import ru.kpfu.itis.load_project.entity.TargetAudience;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -94,7 +102,76 @@ public class IndexService {
         return peopleNumberInAudience;
     }
 
-    public Long getDistribution(Long peopleNumber) {
-        return peopleNumber;
+    public List<Long> getDistribution(Long peopleNumber, Map<Region, Long> fixedNumbers) {
+        return fixedNumbers.values().stream().collect(Collectors.toList());
+    }
+
+    public String getGoogleTrendsJson(String path) {
+        String result = "";
+        try {
+            String[] env = null;
+            String[] callAndArgs = {"node", "app.js"};
+            Process p = null;
+
+            p = Runtime.getRuntime().exec(callAndArgs, env, new File(path));
+
+
+            BufferedReader stdInput = new BufferedReader(new
+                    InputStreamReader(p.getInputStream()));//getting the input
+
+            BufferedReader stdError = new BufferedReader(new
+                    InputStreamReader(p.getErrorStream()));//getting the error
+
+            result = stdInput.readLine();//reading the output
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            return result;
+        }
+    }
+
+    public Map<Region, Long> getYandexWordstatNumberByRegion(List<Integer> regionIds) {
+        List<Region> regions = regionDao.findAllById(regionIds);
+        String regionStrings = regions.stream().map(Region::getName).reduce((x, y) -> x + "," + y).get();
+        System.setProperty("webdriver.gecko.driver", "C:\\Users\\ksch2\\IdeaProjects\\geckodriver0291.exe");
+        FirefoxOptions ffo = new FirefoxOptions();
+        ffo.setCapability("marionette", true);
+
+        WebDriver driver = new FirefoxDriver(ffo);
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        Map<String, Object> vars = new HashMap<String, Object>();
+
+        WebDriverWait wait = new WebDriverWait(driver, 10);
+
+        wait.until(webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState").equals("complete"));
+
+        driver.get("https://wordstat.yandex.ru/");
+        WebElement elem = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".b-search__type[value=regions]")));
+        driver.findElement(By.cssSelector(".b-search__type[value=regions]")).click();
+        driver.findElement(By.cssSelector("#b-domik_popup-username")).sendKeys("gudddar@yandex.ru");
+        driver.findElement(By.cssSelector("#b-domik_popup-password")).sendKeys("17032010");
+        driver.findElement(By.cssSelector(".b-form-button__input:not([hidefocus=true])")).click();
+        driver.findElement(By.cssSelector(".b-form-input__input[name=text]")).sendKeys("банк");
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".b-search__type[value=regions]")));
+        driver.findElement(By.cssSelector(".b-form-button > .b-form-button__input")).click();
+
+        elem = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector(".b-regions-statistic__list")));
+        WebElement element = driver.findElement(By.cssSelector(".b-regions-statistic__table"));
+        List<WebElement> rows = element.findElements(By.cssSelector(".b-regions-statistic__tr"));
+        Map<String, WebElement> filteredRows = rows.stream()
+                .filter(row -> (row.findElements(By.cssSelector(".b-regions-statistic__td_type_cities")).size() > 0 &&
+                regionStrings.contains(row.findElement(By.cssSelector(".b-regions-statistic__td_type_cities")).getText())) ||
+                (row.findElements(By.cssSelector(".b-regions-statistic__td_type_regions")).size() > 0 &&
+                regionStrings.contains(row.findElement(By.cssSelector(".b-regions-statistic__td_type_regions")).getText())))
+                .collect(Collectors.toMap((row -> row.findElements(By.cssSelector(".b-regions-statistic__td_type_cities")).size() > 0 ?
+                                row.findElement(By.cssSelector(".b-regions-statistic__td_type_cities")).getText() : row.findElement(By.cssSelector(".b-regions-statistic__td_type_regions")).getText()),
+                        (row -> row)));
+
+        Map<Region, Long> results = new HashMap<>();
+        for (Map.Entry<String, WebElement> filteredRow : filteredRows.entrySet()) {
+            results.put(regions.stream().filter(region -> region.getName().equals(filteredRow.getKey())).findAny().get(),
+                    Long.parseLong(filteredRow.getValue().findElement(By.cssSelector(".b-regions-statistic__td_type_number")).getText().replaceAll(" ", "")));
+        }
+        return results;
     }
 }
