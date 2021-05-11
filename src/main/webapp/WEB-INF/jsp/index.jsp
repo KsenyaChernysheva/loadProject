@@ -31,14 +31,22 @@
                             value="${target_audience.getId()}">${target_audience.getName()}</option>
                 </c:forEach>
             </select>
-            <button id="button">Send</button>
         </div>
-
-        <div class="col-lg-4 ml-3">
-            <p id="result"></p>
+        <div class="col-lg-4">
+            <label for="category_select">Select category</label>
+            <select id="category_select" class="form-select" aria-label="Select category">
+                <c:forEach items="${categories}" var="category">
+                    <option name="categoriesSelected"
+                            value="${category.getId()}">${category.getName()}</option>
+                </c:forEach>
+            </select>
+            <button id="button">Send</button>
         </div>
     </div>
     <div class="row">
+        <div class="col-lg-4 ml-3">
+            <p id="result"></p>
+        </div>
         <div class="col md-auto">
             <p>${resultString}</p>
         </div>
@@ -48,11 +56,13 @@
     $('#button').click(function setData() {
         let selectedValues = $('#region_select').val();
         let selectedValuesTargetAudience = $('#target_audience_select').val();
+        let selectedCategory = $('#category_select').val();
         $.ajax({
             type: 'POST',
             data: {
                 selectedValues: selectedValues,
-                selectedValuesTargetAudience: selectedValuesTargetAudience
+                selectedValuesTargetAudience: selectedValuesTargetAudience,
+                selectedCategory: selectedCategory
             },
             url: 'index',
             success: function (answer) {
