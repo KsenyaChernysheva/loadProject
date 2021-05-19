@@ -24,4 +24,7 @@ public class Region {
 
     @Column(name = "parent_id")
     private Integer parentId;
+
+    @Column(name = "geo")
+    private String geo;
 }

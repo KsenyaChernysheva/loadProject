@@ -1,5 +1,9 @@
 package ru.kpfu.itis.load_project.service;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -22,13 +26,17 @@ import org.springframework.stereotype.Service;
 import ru.kpfu.itis.load_project.dao.CategoryDao;
 import ru.kpfu.itis.load_project.dao.RegionDao;
 import ru.kpfu.itis.load_project.dao.TargetAudienceDao;
-import ru.kpfu.itis.load_project.entity.Category;
-import ru.kpfu.itis.load_project.entity.Region;
-import ru.kpfu.itis.load_project.entity.Statistic;
-import ru.kpfu.itis.load_project.entity.TargetAudience;
+import ru.kpfu.itis.load_project.entity.*;
+import ru.kpfu.itis.load_project.entity.dto.ChartDataDto;
 
+import javax.servlet.ServletContext;
 import java.io.*;
+import java.math.BigDecimal;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,8 +52,13 @@ public class IndexService {
     @Autowired
     private CategoryDao categoryDao;
 
+    @Autowired
+    private ServletContext context;
+
     private static final String ROSSTAT_SEARCH_QUERY = "https://rosstat.gov.ru/search?q=:query&date_from=&sections%5B%5D=204&content=doc&date_to=&search_by=all&sort=relevance";
     private static final String ROSSTAT_LINK_PREFIX = "https://rosstat.gov.ru";
+
+    private static final String GEO_PREFIX = "RU-";
 
     public List<Region> getAllRegions() {
         return regionDao.findAllByOrderByNameAsc();
@@ -112,15 +125,64 @@ public class IndexService {
         return peopleNumberInAudience;
     }
 
-    public List<Long> getDistribution(Long peopleNumber, List<Statistic> fixedNumbers) {
-        return fixedNumbers.stream().map(Statistic::getNumberOfQueries).collect(Collectors.toList());
+    public ChartDataDto getDistribution(Long peopleNumber, List<Statistic> fixedNumbers) {
+        Map<String, Long> pointMap = new HashMap<>();
+        for (Statistic fixedNumber : fixedNumbers) {
+            //\/\/\/\/ВОТ ЭТО ДЛЯ ДЕБАГА ЕТО НАДО УБРАТЬ ПОТОМ
+            if (fixedNumber == null) {
+                fixedNumber = Statistic.builder()
+                        .regionId(72).numberOfQueries(50000L).categoryId(1)
+                        .build();
+            }
+            //^^^^^^^
+            Region region = regionDao.getOne(fixedNumber.getRegionId());
+            Category category = categoryDao.getOne(fixedNumber.getCategoryId());
+
+            String googleTrendsJson = getGoogleTrendsJson(context.getRealPath("/WEB-INF/js"),
+                    category.getQuery(),
+                    LocalDate.now().minusMonths(1L),
+                    LocalDate.now(),
+                    region.getGeo());
+            Gson gson = new Gson();
+            List<TimelineData> dayValues = gson.fromJson(googleTrendsJson, new TypeToken<List<TimelineData>>(){}.getType());
+            int dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce((x, y) -> x + y).get();
+            BigDecimal dayFixedNumber = BigDecimal.valueOf(dayValues.get(dayValues.size() - 1).getValue()).multiply(
+                    (BigDecimal.valueOf(fixedNumber.getNumberOfQueries()).divide(BigDecimal.valueOf(dayValuesSum), 2, BigDecimal.ROUND_DOWN)));
+
+            googleTrendsJson = getGoogleTrendsJson(context.getRealPath("/WEB-INF/js"),
+                    category.getQuery(),
+                    LocalDate.now().minusDays(1L),
+                    LocalDate.now(),
+                    region.getGeo());
+            List<TimelineData> hourValues = gson.fromJson(googleTrendsJson, new TypeToken<List<TimelineData>>(){}.getType());
+            int hourValuesSum = hourValues.stream().map(TimelineData::getValue).reduce((x, y) -> x + y).get();
+            for (TimelineData hourValue : hourValues) {
+                LocalDateTime time = hourValue.getTime();
+                String pointName = time.toLocalTime().format(DateTimeFormatter.ISO_TIME);
+                Long pointValue = BigDecimal.valueOf(hourValue.getValue()).multiply(
+                        (dayFixedNumber.divide(BigDecimal.valueOf(hourValuesSum), 2, BigDecimal.ROUND_DOWN))).longValue();
+                if (pointMap.containsKey(pointName)) {
+                    pointMap.put(pointName, pointMap.get(pointName) + pointValue);
+                } else {
+                    pointMap.put(pointName, pointValue);
+                }
+            }
+        }
+        ChartDataDto chartDataDto = new ChartDataDto(new LinkedList<>(), new LinkedList<>());
+        for (Map.Entry<String, Long> entry : pointMap.entrySet()) {
+            chartDataDto.getPointNames().add(entry.getKey());
+            chartDataDto.getPointValues().add(entry.getValue());
+        }
+        return chartDataDto;
     }
 
-    public String getGoogleTrendsJson(String path) {
+    public String getGoogleTrendsJson(String path, String query, LocalDate from, LocalDate to, String geo) {
         String result = "";
         try {
+            String startDate = from.format(DateTimeFormatter.ISO_DATE);
+            String endDate = to.format(DateTimeFormatter.ISO_DATE);
             String[] env = null;
-            String[] callAndArgs = {"node", "app.js"};
+            String[] callAndArgs = {"node", "app.js", query, startDate, endDate , GEO_PREFIX + geo};
             Process p = null;
 
             p = Runtime.getRuntime().exec(callAndArgs, env, new File(path));
@@ -133,6 +195,7 @@ public class IndexService {
                     InputStreamReader(p.getErrorStream()));//getting the error
 
             result = stdInput.readLine();//reading the output
+            String error = stdError.readLine();
         } catch (IOException e) {
             e.printStackTrace();
         } finally {

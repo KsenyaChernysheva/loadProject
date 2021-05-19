@@ -11,6 +11,7 @@
             integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0"
             crossorigin="anonymous"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="js/Chart.min.js"></script>
 </head>
 <body>
 <div class="container mx-4 px-0 my-4">
@@ -47,12 +48,26 @@
         <div class="col-lg-4 ml-3">
             <p id="result"></p>
         </div>
-        <div class="col md-auto">
-            <p>${resultString}</p>
-        </div>
+        <canvas id="canvas"></canvas>
     </div>
 </div>
 <script>
+    let chart;
+    $(document).ready(function() {
+        let ctx = $('#canvas');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Распределение',
+                    backgroundColor: 'rgba(3, 174, 41, 0.4)',
+                    borderColor: 'rgb(3, 174, 41)',
+                    borderWidth: 1
+                }]
+            }
+        });
+    });
+
     $('#button').click(function setData() {
         let selectedValues = $('#region_select').val();
         let selectedValuesTargetAudience = $('#target_audience_select').val();
@@ -66,7 +81,9 @@
             },
             url: 'index',
             success: function (answer) {
-                $('#result').text(answer);
+                chart.data.labels = answer.pointNames;
+                chart.data.datasets[0].data = answer.pointValues;
+                chart.update();
             }
         });
     });

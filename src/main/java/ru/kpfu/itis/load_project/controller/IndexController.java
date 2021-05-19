@@ -11,6 +11,7 @@ import ru.kpfu.itis.load_project.entity.Category;
 import ru.kpfu.itis.load_project.entity.Region;
 import ru.kpfu.itis.load_project.entity.Statistic;
 import ru.kpfu.itis.load_project.entity.TargetAudience;
+import ru.kpfu.itis.load_project.entity.dto.ChartDataDto;
 import ru.kpfu.itis.load_project.service.IndexService;
 import ru.kpfu.itis.load_project.service.YandexWordstatService;
 
@@ -31,13 +32,10 @@ public class IndexController {
     @Autowired
     private YandexWordstatService yandexWordstatService;
 
-    @Autowired
-    ServletContext context;
-
     @PostMapping
-    public ResponseEntity<List<Long>> region(@RequestParam(value = "selectedValues[]") List<Integer> ids,
-                                             @RequestParam(value = "selectedValuesTargetAudience[]") List<Integer> idsTargetAudience,
-                                             @RequestParam(value = "selectedCategory") Integer idCategory) {
+    public ResponseEntity<ChartDataDto> region(@RequestParam(value = "selectedValues[]") List<Integer> ids,
+                                               @RequestParam(value = "selectedValuesTargetAudience[]") List<Integer> idsTargetAudience,
+                                               @RequestParam(value = "selectedCategory") Integer idCategory) {
         Long peopleNumber = 0L;
         List<Statistic> fixedNumbers = null;
         try {
@@ -51,8 +49,6 @@ public class IndexController {
 
     @GetMapping
     public String region(Model model) throws  IOException {
-        String result = indexService.getGoogleTrendsJson(context.getRealPath("/WEB-INF/js"));
-
         List<Region> regions = indexService.getAllRegions();
         List<TargetAudience> targetAudiences = indexService.getAllAudiences();
         List<Category> categories = indexService.getAllCategories();
@@ -61,7 +57,6 @@ public class IndexController {
         model.addAttribute("answer", new ArrayList<Integer>());
         model.addAttribute("regions", regions);
         model.addAttribute("categories", categories);
-        model.addAttribute("resultString", result);
         return "index";
     }
 
