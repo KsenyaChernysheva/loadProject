@@ -15,11 +15,9 @@ import ru.kpfu.itis.load_project.entity.dto.ChartDataDto;
 import ru.kpfu.itis.load_project.service.IndexService;
 import ru.kpfu.itis.load_project.service.YandexWordstatService;
 
-import javax.servlet.ServletContext;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Controller
 @Log
@@ -34,12 +32,12 @@ public class IndexController {
 
     @PostMapping
     public ResponseEntity<ChartDataDto> region(@RequestParam(value = "selectedValues[]") List<Integer> ids,
-                                               @RequestParam(value = "selectedValuesTargetAudience[]") List<Integer> idsTargetAudience,
+                                               @RequestParam(value = "selectedTargetAudience") Integer idTargetAudience,
                                                @RequestParam(value = "selectedCategory") Integer idCategory) {
         Long peopleNumber = 0L;
         List<Statistic> fixedNumbers = null;
         try {
-            peopleNumber = indexService.getPeopleNumber(ids, idsTargetAudience);
+            peopleNumber = indexService.getPeopleNumber(ids, idTargetAudience);
             fixedNumbers = yandexWordstatService.getYandexWordstatNumberByRegionAndCategory(ids, idCategory);
         } catch (IOException e) {
             e.printStackTrace();

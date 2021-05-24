@@ -14,10 +14,10 @@
     <script src="js/Chart.min.js"></script>
 </head>
 <body>
-<div class="container mx-4 px-0 my-4">
+<div class="container-fluid mx-4 px-0 my-4" style="max-width:90%">
     <div class="row">
-        <div class="col-lg-4">
-            <label for="region_select">Select region</label>
+        <div class="col-lg-6">
+            <label for="region_select">Выберите регион</label>
             <select id="region_select" class="form-select" multiple aria-label="Select region">
                 <c:forEach items="${regions}" var="region">
                     <option name="regionSelected" value="${region.getId()}">${region.getName()}</option>
@@ -25,22 +25,22 @@
             </select>
         </div>
         <div class="col-lg-4">
-            <label for="target_audience_select">Select target audience</label>
-            <select id="target_audience_select" class="form-select" multiple aria-label="Select target audience">
+            <label for="target_audience_select">Выберите целевую аудиторию сервиса</label>
+            <select id="target_audience_select" class="form-select" aria-label="Select target audience">
                 <c:forEach items="${audiences}" var="target_audience">
                     <option name="targetAudienceSelected"
                             value="${target_audience.getId()}">${target_audience.getName()}</option>
                 </c:forEach>
             </select>
-        </div>
-        <div class="col-lg-4">
-            <label for="category_select">Select category</label>
+            <label for="category_select">Выберите категорию сервиса</label>
             <select id="category_select" class="form-select" aria-label="Select category">
                 <c:forEach items="${categories}" var="category">
                     <option name="categoriesSelected"
                             value="${category.getId()}">${category.getName()}</option>
                 </c:forEach>
             </select>
+        </div>
+        <div class="col-lg-2">
             <button id="button">Send</button>
         </div>
     </div>
@@ -70,13 +70,13 @@
 
     $('#button').click(function setData() {
         let selectedValues = $('#region_select').val();
-        let selectedValuesTargetAudience = $('#target_audience_select').val();
+        let selectedTargetAudience = $('#target_audience_select').val();
         let selectedCategory = $('#category_select').val();
         $.ajax({
             type: 'POST',
             data: {
                 selectedValues: selectedValues,
-                selectedValuesTargetAudience: selectedValuesTargetAudience,
+                selectedTargetAudience: selectedTargetAudience,
                 selectedCategory: selectedCategory
             },
             url: 'index',

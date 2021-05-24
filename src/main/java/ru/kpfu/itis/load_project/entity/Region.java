@@ -27,4 +27,7 @@ public class Region {
 
     @Column(name = "geo")
     private String geo;
+
+    @Column(name = "population")
+    private Long population;
 }

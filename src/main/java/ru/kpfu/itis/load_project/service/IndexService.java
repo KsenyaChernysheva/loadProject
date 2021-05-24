@@ -9,6 +9,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -65,26 +66,22 @@ public class IndexService {
     }
 
     public List<TargetAudience> getAllAudiences() {
-        return targetAudienceDao.findAll();
+        return targetAudienceDao.findAllByOrderByNameAsc();
     }
 
     public List<Category> getAllCategories() {
         return categoryDao.findAll();
     }
 
-    public Long getPeopleNumber(List<Integer> regionIds, List<Integer> audienceIds) throws IOException {
+    public Long getPeopleNumber(List<Integer> regionIds, Integer audienceId) throws IOException {
         List<Region> regions = regionDao.findAllById(regionIds);
-        List<TargetAudience> audiences = targetAudienceDao.findAllById(audienceIds);
+        TargetAudience audience = targetAudienceDao.findById(audienceId).get();
 
-        Long peopleNumber = 0L;
-        for (TargetAudience audience : audiences) {
-            peopleNumber += getPeopleNumberInAudience(regions, audience.getQuery());
-        }
-        return peopleNumber;
+        return getPeopleNumberInAudience(regions, audience);
     }
 
-    private Long getPeopleNumberInAudience(List<Region> regions, String audienceQuery) throws IOException {
-        String query = ROSSTAT_SEARCH_QUERY.replace(":query", audienceQuery);
+    private Long getPeopleNumberInAudience(List<Region> regions, TargetAudience audience) throws IOException {
+        String query = ROSSTAT_SEARCH_QUERY.replace(":query", audience.getQuery());
         Document doc = Jsoup.connect(query).userAgent("Chrome/4.0.249.0 Safari/532.5").get();
         Element statisticsLink = doc.body().getElementsByClass("list__items").get(0)
                 .getElementsByTag("a").first();
@@ -100,10 +97,15 @@ public class IndexService {
         }
 
         InputStream in = statisticsURL.openStream();
-        Workbook workbook = new HSSFWorkbook(in);
-        Sheet sheet = workbook.getSheetAt(0);
+        Workbook workbook;
+        if (statisticsURL.getFile().split("\\.")[1].equals("xlsx")) {
+            workbook = new XSSFWorkbook(in);
+        } else {
+            workbook = new HSSFWorkbook(in);
+        }
+        Sheet sheet = workbook.getSheetAt(audience.getSheet());
         Iterator<Row> iterator = sheet.iterator();
-        List<String> regionStrings = regions.stream().map(region -> region.getDbName()).collect(Collectors.toList());
+        List<String> regionStrings = regions.stream().map(Region::getDbName).collect(Collectors.toList());
         Long peopleNumberInAudience = 0L;
         while (iterator.hasNext()) {
             String stringToRemove = null;
@@ -112,8 +114,9 @@ public class IndexService {
             if (cell == null) continue;
             for (String regionString : regionStrings) {
                 if (cell.getStringCellValue().contains(regionString)) {
-                    Cell dataCell = row.getCell(row.getLastCellNum() - 1);
-                    peopleNumberInAudience += new Double(dataCell.getNumericCellValue() * 1000).longValue();
+                    Cell dataCell = row.getCell(row.getLastCellNum() - audience.getSubColumn());
+                    peopleNumberInAudience += new Double(dataCell.getNumericCellValue() * audience.getCoefficient())
+                            .longValue();
                     stringToRemove = regionString;
                     break;
                 }
@@ -126,39 +129,38 @@ public class IndexService {
     }
 
     public ChartDataDto getDistribution(Long peopleNumber, List<Statistic> fixedNumbers) {
-        Map<String, Long> pointMap = new HashMap<>();
+        Map<LocalDateTime, Long> pointMap = new TreeMap<>();
         for (Statistic fixedNumber : fixedNumbers) {
             //\/\/\/\/ВОТ ЭТО ДЛЯ ДЕБАГА ЕТО НАДО УБРАТЬ ПОТОМ
             if (fixedNumber == null) {
                 fixedNumber = Statistic.builder()
-                        .regionId(72).numberOfQueries(50000L).categoryId(1)
+                        .regionId(52).numberOfQueries(50000L).categoryId(29)
                         .build();
             }
             //^^^^^^^
             Region region = regionDao.getOne(fixedNumber.getRegionId());
+            BigDecimal percent = BigDecimal.valueOf(peopleNumber).divide(BigDecimal.valueOf(region.getPopulation()), 2, BigDecimal.ROUND_DOWN);
             Category category = categoryDao.getOne(fixedNumber.getCategoryId());
 
-            String googleTrendsJson = getGoogleTrendsJson(context.getRealPath("/WEB-INF/js"),
-                    category.getQuery(),
+            String googleTrendsJson = getGoogleTrendsJson(category.getQuery(),
                     LocalDate.now().minusMonths(1L),
                     LocalDate.now(),
                     region.getGeo());
             Gson gson = new Gson();
             List<TimelineData> dayValues = gson.fromJson(googleTrendsJson, new TypeToken<List<TimelineData>>(){}.getType());
-            int dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce((x, y) -> x + y).get();
+            int dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce(Integer::sum).get();
             BigDecimal dayFixedNumber = BigDecimal.valueOf(dayValues.get(dayValues.size() - 1).getValue()).multiply(
-                    (BigDecimal.valueOf(fixedNumber.getNumberOfQueries()).divide(BigDecimal.valueOf(dayValuesSum), 2, BigDecimal.ROUND_DOWN)));
+                    (BigDecimal.valueOf(fixedNumber.getNumberOfQueries()).divide(BigDecimal.valueOf(dayValuesSum), 2, BigDecimal.ROUND_DOWN)))
+                   .multiply(percent);
 
-            googleTrendsJson = getGoogleTrendsJson(context.getRealPath("/WEB-INF/js"),
-                    category.getQuery(),
+            googleTrendsJson = getGoogleTrendsJson(category.getQuery(),
                     LocalDate.now().minusDays(1L),
                     LocalDate.now(),
                     region.getGeo());
             List<TimelineData> hourValues = gson.fromJson(googleTrendsJson, new TypeToken<List<TimelineData>>(){}.getType());
-            int hourValuesSum = hourValues.stream().map(TimelineData::getValue).reduce((x, y) -> x + y).get();
+            int hourValuesSum = hourValues.stream().map(TimelineData::getValue).reduce(Integer::sum).get();
             for (TimelineData hourValue : hourValues) {
-                LocalDateTime time = hourValue.getTime();
-                String pointName = time.toLocalTime().format(DateTimeFormatter.ISO_TIME);
+                LocalDateTime pointName = hourValue.getTime();
                 Long pointValue = BigDecimal.valueOf(hourValue.getValue()).multiply(
                         (dayFixedNumber.divide(BigDecimal.valueOf(hourValuesSum), 2, BigDecimal.ROUND_DOWN))).longValue();
                 if (pointMap.containsKey(pointName)) {
@@ -169,23 +171,39 @@ public class IndexService {
             }
         }
         ChartDataDto chartDataDto = new ChartDataDto(new LinkedList<>(), new LinkedList<>());
-        for (Map.Entry<String, Long> entry : pointMap.entrySet()) {
-            chartDataDto.getPointNames().add(entry.getKey());
-            chartDataDto.getPointValues().add(entry.getValue());
+        Long sum = 0L;
+        LocalDateTime lastEntryTime = null;
+
+        for (Map.Entry<LocalDateTime, Long> entry : pointMap.entrySet()) {
+            LocalDateTime entryTime = entry.getKey();
+            Long entryValue = entry.getValue();
+            if (lastEntryTime == null || (entryTime.getHour() == 0 && entryTime.getMinute() == 0)) {
+                chartDataDto.getPointNames().add(entryTime.plusHours(3).format(DateTimeFormatter.ofPattern("HH:mm")));
+                chartDataDto.getPointValues().add(sum + entry.getValue());
+            } else {
+                if (lastEntryTime.getHour() == entryTime.getHour()) {
+                    sum += entryValue;
+                } else {
+                    chartDataDto.getPointNames().add(entryTime.withMinute(0).plusHours(3).format(DateTimeFormatter.ofPattern("HH:mm")));
+                    chartDataDto.getPointValues().add(sum);
+                    sum = entryValue;
+                }
+            }
+            lastEntryTime = entryTime;
         }
         return chartDataDto;
     }
 
-    public String getGoogleTrendsJson(String path, String query, LocalDate from, LocalDate to, String geo) {
+    public String getGoogleTrendsJson(String query, LocalDate from, LocalDate to, String geo) {
         String result = "";
         try {
             String startDate = from.format(DateTimeFormatter.ISO_DATE);
             String endDate = to.format(DateTimeFormatter.ISO_DATE);
             String[] env = null;
-            String[] callAndArgs = {"node", "app.js", query, startDate, endDate , GEO_PREFIX + geo};
+            String[] callAndArgs = {"node", "gtrends.js", query, startDate, endDate , GEO_PREFIX + geo};
             Process p = null;
 
-            p = Runtime.getRuntime().exec(callAndArgs, env, new File(path));
+            p = Runtime.getRuntime().exec(callAndArgs, env, new File(context.getRealPath("/js")));
 
 
             BufferedReader stdInput = new BufferedReader(new

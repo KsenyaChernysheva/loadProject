@@ -19,4 +19,13 @@ public class TargetAudience {
 
     @Column
     private String query;
+
+    @Column
+    private Integer sheet;
+
+    @Column(name="sub_column")
+    private Integer subColumn;
+
+    @Column
+    private Integer coefficient;
 }
