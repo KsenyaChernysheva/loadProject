@@ -61,6 +61,9 @@ public class IndexService {
 
     private static final String GEO_PREFIX = "RU-";
 
+    private static final String AUDIENCE_ALL = "Все";
+    private static final Long PLACEHOLDER_POPULATION = 3000000L;
+
     public List<Region> getAllRegions() {
         return regionDao.findAllByOrderByNameAsc();
     }
@@ -108,6 +111,7 @@ public class IndexService {
         List<String> regionStrings = regions.stream().map(Region::getDbName).collect(Collectors.toList());
         Long peopleNumberInAudience = 0L;
         while (iterator.hasNext()) {
+            Long peopleNumber = 0L;
             String stringToRemove = null;
             Row row = iterator.next();
             Cell cell = row.getCell(0);
@@ -115,13 +119,21 @@ public class IndexService {
             for (String regionString : regionStrings) {
                 if (cell.getStringCellValue().contains(regionString)) {
                     Cell dataCell = row.getCell(row.getLastCellNum() - audience.getSubColumn());
-                    peopleNumberInAudience += new Double(dataCell.getNumericCellValue() * audience.getCoefficient())
+                    peopleNumber = new Double(dataCell.getNumericCellValue() * audience.getCoefficient())
                             .longValue();
+                    peopleNumberInAudience += peopleNumber;
                     stringToRemove = regionString;
                     break;
                 }
             }
-            if (stringToRemove != null) regionStrings.remove(stringToRemove);
+            if (stringToRemove != null) {
+                if (audience.getName().equals(AUDIENCE_ALL)) {
+                    Region regionToUpdate = regionDao.findByDbName(stringToRemove);
+                    regionToUpdate.setPopulation(peopleNumber);
+                    regionDao.save(regionToUpdate);
+                }
+                regionStrings.remove(stringToRemove);
+            }
             if (regionStrings.isEmpty()) break;
         }
 
@@ -131,15 +143,16 @@ public class IndexService {
     public ChartDataDto getDistribution(Long peopleNumber, List<Statistic> fixedNumbers) {
         Map<LocalDateTime, Long> pointMap = new TreeMap<>();
         for (Statistic fixedNumber : fixedNumbers) {
-            //\/\/\/\/ВОТ ЭТО ДЛЯ ДЕБАГА ЕТО НАДО УБРАТЬ ПОТОМ
-            if (fixedNumber == null) {
-                fixedNumber = Statistic.builder()
-                        .regionId(52).numberOfQueries(50000L).categoryId(29)
-                        .build();
-            }
-            //^^^^^^^
             Region region = regionDao.getOne(fixedNumber.getRegionId());
-            BigDecimal percent = BigDecimal.valueOf(peopleNumber).divide(BigDecimal.valueOf(region.getPopulation()), 2, BigDecimal.ROUND_DOWN);
+            Long population = region.getPopulation();
+            if (population.equals(0L)) {
+                try {
+                    population = getPeopleNumberInAudience(Arrays.asList(region), targetAudienceDao.findByName(AUDIENCE_ALL));
+                } catch (IOException e) {
+                    population = PLACEHOLDER_POPULATION;
+                }
+            }
+            BigDecimal percent = BigDecimal.valueOf(peopleNumber).divide(BigDecimal.valueOf(population), 2, BigDecimal.ROUND_DOWN);
             Category category = categoryDao.getOne(fixedNumber.getCategoryId());
 
             String googleTrendsJson = getGoogleTrendsJson(category.getQuery(),
@@ -148,7 +161,10 @@ public class IndexService {
                     region.getGeo());
             Gson gson = new Gson();
             List<TimelineData> dayValues = gson.fromJson(googleTrendsJson, new TypeToken<List<TimelineData>>(){}.getType());
-            int dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce(Integer::sum).get();
+            int dayValuesSum = 0;
+            if (dayValues.size() > 0) {
+                dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce(Integer::sum).get();
+            }
             BigDecimal dayFixedNumber = BigDecimal.valueOf(dayValues.get(dayValues.size() - 1).getValue()).multiply(
                     (BigDecimal.valueOf(fixedNumber.getNumberOfQueries()).divide(BigDecimal.valueOf(dayValuesSum), 2, BigDecimal.ROUND_DOWN)))
                    .multiply(percent);

@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface RegionDao extends JpaRepository<Region, Integer> {
 
-    Region findByName(String name);
+    Region findByDbName(String dbName);
 
     List<Region> findAllByOrderByNameAsc();
 
