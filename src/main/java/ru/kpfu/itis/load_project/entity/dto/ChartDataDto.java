@@ -14,4 +14,5 @@ import java.util.List;
 public class ChartDataDto {
     private List<String> pointNames;
     private List<Long> pointValues;
+    private boolean isEmpty;
 }

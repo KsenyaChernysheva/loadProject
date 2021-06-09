@@ -1,0 +1,73 @@
+.schadow {
+    -webkit-transition: 0.4s ease;
+    transition: 0.4s ease;
+}
+
+.schadow:before {
+    content: '';
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    z-index: 61;
+    background-color: rgba(57, 77, 94, 0.5);
+}
+
+.box{
+    width: 50%;
+    height: 50%;
+    position: inherit;
+}
+
+.overlay {
+    width: 95%; /* Full width (cover the whole page) */
+    height: 100%; /* Full height (cover the whole page) */
+    position: absolute;
+    background-color: rgba(57, 77, 94, 0.25); /* Black background with opacity */
+    z-index: 10; /* Specify a stack order in case you're using a different order for other elements */
+    cursor: pointer; /* Add a pointer on hover */
+    justify-content: center;
+    text-align: center;
+    padding-top: 40px;
+}
+
+.overlay_box {
+    background-color: cornsilk;
+    border-radius: 10px;
+}
+.upper {
+    position: fixed;
+    z-index: 100; /* Specify a stack order in case you're using a different order for other elements */
+    cursor: pointer; /* Add a pointer on hover */
+    justify-content: center;
+    padding-top: 40px;
+}
+
+.spinner {
+    height: 40px;
+    width: 40px;
+    background: transparent;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #919ea9;
+    animation: loading_spinner 600ms linear infinite;
+    margin-right: 24px;
+    margin-bottom: 16px;
+}
+
+@keyframes loading_spinner {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.no-data {
+    font-size: 24px;
+    font-weight: bold;
+    color: black;
+}
+
+label {
+    font-size: 18px;
+    font-weight: bold;
+}

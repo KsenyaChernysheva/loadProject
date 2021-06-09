@@ -142,6 +142,7 @@ public class IndexService {
 
     public ChartDataDto getDistribution(Long peopleNumber, List<Statistic> fixedNumbers) {
         Map<LocalDateTime, Long> pointMap = new TreeMap<>();
+        boolean isEmpty = true;
         for (Statistic fixedNumber : fixedNumbers) {
             Region region = regionDao.getOne(fixedNumber.getRegionId());
             Long population = region.getPopulation();
@@ -164,6 +165,8 @@ public class IndexService {
             int dayValuesSum = 0;
             if (dayValues.size() > 0) {
                 dayValuesSum = dayValues.stream().map(TimelineData::getValue).reduce(Integer::sum).get();
+            } else {
+                return new ChartDataDto().builder().isEmpty(true).build();
             }
             BigDecimal dayFixedNumber = BigDecimal.valueOf(dayValues.get(dayValues.size() - 1).getValue()).multiply(
                     (BigDecimal.valueOf(fixedNumber.getNumberOfQueries()).divide(BigDecimal.valueOf(dayValuesSum), 2, BigDecimal.ROUND_DOWN)))
@@ -179,6 +182,9 @@ public class IndexService {
                 LocalDateTime pointName = hourValue.getTime();
                 Long pointValue = BigDecimal.valueOf(hourValue.getValue()).multiply(
                         (dayFixedNumber.divide(BigDecimal.valueOf(hourValuesSum), 2, BigDecimal.ROUND_DOWN))).longValue();
+                if (!pointValue.equals(0L)) {
+                    isEmpty = false;
+                }
                 if (pointMap.containsKey(pointName)) {
                     pointMap.put(pointName, pointMap.get(pointName) + pointValue);
                 } else {
@@ -186,7 +192,10 @@ public class IndexService {
                 }
             }
         }
-        ChartDataDto chartDataDto = new ChartDataDto(new LinkedList<>(), new LinkedList<>());
+        if (isEmpty) {
+            return new ChartDataDto().builder().isEmpty(true).build();
+        }
+        ChartDataDto chartDataDto = new ChartDataDto(new LinkedList<>(), new LinkedList<>(), isEmpty);
         Long sum = 0L;
         LocalDateTime lastEntryTime = null;
 
